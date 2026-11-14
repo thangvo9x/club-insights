@@ -4,7 +4,7 @@ import {
   ArrowUpRight as OpenIcon,
   Minus,
 } from 'lucide-react';
-import type { Metric } from '@/lib/types';
+import type { Metric } from '../types';
 export const METRICS: Record<
   Metric,
   { label: string; definition: string; unit: string }

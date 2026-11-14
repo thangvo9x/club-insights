@@ -1,3 +1,4 @@
+import type { Club } from '../../clubs/types';
 import {
   addDays,
   containsDate,
@@ -5,16 +6,15 @@ import {
   mondayOf,
   NOW,
   precedingRange,
-} from './dates';
+} from '../lib/dates';
 import type {
-  Club,
   Dataset,
   DateRange,
   Insights,
   PeriodSummary,
   Session,
   SessionDetail,
-} from './types';
+} from '../types';
 
 function heldSessions(
   data: Dataset,

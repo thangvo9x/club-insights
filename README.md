@@ -43,43 +43,54 @@ npm start
 
 ```text
 src/
-  app/
-    layout.tsx              # Root layout, metadata and global CSS
-    page.tsx                # Main page; renders Dashboard
-    api/
-      clubs/route.ts        # GET /api/clubs: club list
-      insights/route.ts     # GET /api/insights: metrics, chart data and details
-  components/
-    dashboard.tsx           # Fetches data, manages filters and assembles the UI
-    metric-card.tsx         # Metric value, definition and previous-period comparison
-    weekly-chart.tsx        # Weekly bar chart and accessible data table
-    detail-dialog.tsx       # Players or sessions behind a selected metric
+  app/                         # Next.js pages, layout and thin JSON route handlers
+  features/
+    clubs/
+      hooks/use-clubs.ts       # Club list, loading, error and retry
+      server/queries.ts        # Club database queries
+      types.ts                 # Club model
+    insights/
+      components/              # Dashboard, metric cards, weekly chart and detail dialog
+      hooks/
+        use-insights.ts        # Insights query for a club and date range
+        use-date-range.ts      # Presets, draft dates, validation and applying a range
+      lib/
+        dates.ts               # Fixed clock and club-local date/week calculations
+        validation.ts          # Date-range schema shared by the UI and API
+      server/
+        queries.ts             # Reads sessions, bookings and players for a club
+        metrics.ts             # Pure summary, weekly and drill-down calculations
+      types.ts                 # Booking, session, date-range and insights models
+  hooks/use-json-query.ts       # Shared JSON fetching, cancellation, loading and retry
   lib/
-    types.ts                # Shared Club, Session, Booking and Insights types
-    db.ts                   # SQLite schema and database queries
-    metrics.ts              # Pure functions for summaries, weekly metrics and details
-    dates.ts                # Fixed clock, local dates and week/period calculations
-    http.ts                 # API parameter validation and JSON responses
-scripts/
-  seed.ts                   # Validates and imports all four CSVs in one transaction
-data/csv/                   # clubs.csv, players.csv, sessions.csv, bookings.csv
-tests/
-  assessment-data.test.ts   # Checks independently audited totals from the source CSVs
-  metrics.test.ts           # Unknown vs zero, date boundaries, weeks and unique players
-  seed.test.ts              # Repeatable seeding and rollback on import failures
-  http.test.ts              # API date-range validation
-  e2e/dashboard.spec.ts     # API, desktop/mobile, filters and error recovery
-docs/                       # API/CSV contracts, spec checklist and preview images
-.github/workflows/ci.yml     # Dependency installation, checks, build and browser tests
+    api-client.ts              # JSON requests and HTTP error handling
+    db.ts                      # SQLite connection and schema
+    http.ts                    # JSON response helper
+scripts/seed.ts                # Validates and imports all four CSVs in one transaction
+data/csv/                      # Supplied clubs, players, sessions and bookings CSVs
+tests/                         # Metric, import, API and browser tests
+docs/                          # API/CSV contracts, spec checklist and preview images
+.github/workflows/ci.yml        # Dependency installation, checks, build and browser tests
 ```
+
+## Feature boundaries and reusable hooks
+
+Each feature owns its UI, hooks, types and server queries. `app/` connects Next.js routes to the features. Only infrastructure used across features lives in the shared `hooks/` and `lib/` folders. Client components import feature hooks; database queries stay in server modules.
+
+- `useJsonQuery<T>(url)` returns `data`, `error`, `isLoading` and `refetch`. Pass `null` to pause a dependent request. URL changes and unmounts abort pending requests; responses from cancelled requests cannot update state. The hook handles fetching without knowledge of clubs or metrics.
+- `useClubs()` wraps the shared query hook with the clubs endpoint and handles an empty club list.
+- `useInsights(clubId, range)` builds the insights query and pauses it until a club is available.
+- `useDateRange(initialRange)` manages applied dates separately from draft inputs, date presets and validation. It returns `applyRange()` as a plain action, so forms handle their own DOM events. It shares the date-range schema with the API.
+
+The Dashboard keeps local presentation state such as the selected chart metric and open dialog. The hooks can be used by other components without rendering the Dashboard.
 
 ## Data flow
 
-1. `scripts/seed.ts` reads the four CSVs, validates records with Zod and writes them to SQLite. Failed imports roll back the transaction and preserve existing data.
-2. `dashboard.tsx` requests `/api/clubs` for the club switcher, then `/api/insights` with `clubId`, `start` and `end`.
-3. The route handler validates parameters through `http.ts`, reads the database through `db.ts` and calls `calculateInsights()` in `metrics.ts`.
-4. The API returns current and previous summaries, weekly values and player/session details. The same JSON API can also serve a mobile client.
-5. React renders the metric cards, chart and detail dialog. Switching clubs or applying a date range fetches new data; selecting a card changes the chart metric.
+1. `scripts/seed.ts` validates the four CSVs with Zod and imports them through the shared SQLite connection. Failed imports roll back and preserve existing data.
+2. The Dashboard uses `useClubs()` for the switcher and `useDateRange()` for filters, then passes the chosen club and applied dates to `useInsights()`.
+3. The API route validates parameters using `features/insights/lib/validation.ts`, reads data through the feature's `server/queries.ts` and calls `calculateInsights()` in `server/metrics.ts`.
+4. The API returns current and previous summaries, weekly values and player/session details. A mobile client can use the same JSON API.
+5. React renders the cards, chart and detail dialog. Changing clubs or applying a range updates the query; selecting a metric changes only the chart.
 
 The frontend receives dashboard data through JSON APIs. Database access stays on the server. See the [API contract](docs/api.md) for response details.
 

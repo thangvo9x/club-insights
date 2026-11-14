@@ -1,6 +1,7 @@
-import { readClubData } from '@/lib/db';
-import { json, querySchema, validateEnd } from '@/lib/http';
-import { calculateInsights } from '@/lib/metrics';
+import { readClubData } from '@/features/insights/server/queries';
+import { json } from '@/lib/http';
+import { querySchema, validateEnd } from '@/features/insights/lib/validation';
+import { calculateInsights } from '@/features/insights/server/metrics';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export function GET(request: Request) {

@@ -1,4 +1,4 @@
-import { readClubs } from '@/lib/db';
+import { readClubs } from '@/features/clubs/server/queries';
 import { json } from '@/lib/http';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

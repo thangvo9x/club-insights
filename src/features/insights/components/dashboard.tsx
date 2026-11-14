@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import {
   Activity,
@@ -15,100 +15,41 @@ import {
   RefreshCw,
   Sprout,
 } from 'lucide-react';
-import { addDays, DEFAULT_RANGE, displayDate } from '@/lib/dates';
-import type { Club, DateRange, Insights, Metric } from '@/lib/types';
+import { displayDate } from '../lib/dates';
+import type { Metric } from '../types';
+import { useClubs } from '@/features/clubs/hooks/use-clubs';
+import { useInsights } from '../hooks/use-insights';
+import { useDateRange, type DatePreset } from '../hooks/use-date-range';
 import { MetricCard, METRICS } from './metric-card';
 import { WeeklyChart } from './weekly-chart';
 import { DetailDialog } from './detail-dialog';
 
 const metricKeys: Metric[] = ['activePlayers', 'sessionsHeld', 'noShows'];
-async function fetchJson<T>(url: string, signal: AbortSignal): Promise<T> {
-  const response = await fetch(url, { signal });
-  const body = await response.json();
-  if (!response.ok)
-    throw new Error(body.error ?? 'Something went wrong. Please retry.');
-  return body;
-}
-
 export function Dashboard() {
-  const [clubs, setClubs] = useState<Club[]>([]);
-  const [clubError, setClubError] = useState('');
+  const clubsQuery = useClubs();
+  const { clubs } = clubsQuery;
   const [selectedClub, setSelectedClub] = useState('');
-  const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
-  const [draft, setDraft] = useState<DateRange>(DEFAULT_RANGE);
-  const [rangeError, setRangeError] = useState('');
-  const [preset, setPreset] = useState('28');
+  const clubId = selectedClub || clubs[0]?.id || '';
+  const {
+    range,
+    draft,
+    setDraft,
+    preset,
+    choosePreset,
+    error: rangeError,
+    applyRange,
+  } = useDateRange();
+  const insightsQuery = useInsights(clubId, range);
+  const { data } = insightsQuery;
+  const error = clubsQuery.error ?? insightsQuery.error;
+  const loading = clubsQuery.isLoading || insightsQuery.isLoading;
   const [metric, setMetric] = useState<Metric>('activePlayers');
   const [detail, setDetail] = useState<Metric | null>(null);
-  const [retry, setRetry] = useState(0);
-  const [result, setResult] = useState<{
-    key: string;
-    data?: Insights;
-    error?: string;
-  }>();
-  const clubId = selectedClub || clubs[0]?.id || '';
-  const query = new URLSearchParams({ clubId, ...range }).toString();
-  const key = `${query}&retry=${retry}`;
 
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchJson<{ clubs: Club[] }>('/api/clubs', controller.signal)
-      .then((body) => {
-        setClubs(body.clubs);
-        setClubError(
-          body.clubs.length
-            ? ''
-            : 'No clubs found. Run the seed script to load the CSVs.',
-        );
-      })
-      .catch((error: Error) => {
-        if (error.name !== 'AbortError') setClubError(error.message);
-      });
-    return () => controller.abort();
-  }, [retry]);
-  useEffect(() => {
-    if (!clubId) return;
-    const controller = new AbortController();
-    fetchJson<Insights>(`/api/insights?${query}`, controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) setResult({ key, data });
-      })
-      .catch((error: Error) => {
-        if (error.name !== 'AbortError')
-          setResult({ key, error: error.message });
-      });
-    return () => controller.abort();
-  }, [clubId, query, key]);
-
-  const data = result?.key === key ? result.data : undefined;
-  const error = clubError || (result?.key === key ? result.error : undefined);
-  const loading = !data && !error;
-  const choosePreset = (value: string) => {
-    setPreset(value);
-    setRangeError('');
-    setDetail(null);
-    if (value === 'custom') return;
-    const next = {
-      start: addDays(DEFAULT_RANGE.end, 1 - Number(value)),
-      end: DEFAULT_RANGE.end,
-    };
-    setRange(next);
-    setDraft(next);
-  };
-  const applyRange = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (draft.start > draft.end) {
-      setRangeError('Start date must be on or before end date.');
-      return;
-    }
-    if ((Date.parse(draft.end) - Date.parse(draft.start)) / 86_400_000 >= 366) {
-      setRangeError('Choose a range of at most 366 days.');
-      return;
-    }
-    setRangeError('');
-    setRange(draft);
-    setDetail(null);
-  };
+  function retry() {
+    clubsQuery.refetch();
+    insightsQuery.refetch();
+  }
   const coverage = data?.current.attendance;
   const coveragePercent =
     coverage && coverage.knownBookings + coverage.unknownBookings > 0
@@ -209,7 +150,10 @@ export function Dashboard() {
                 <select
                   id="period"
                   value={preset}
-                  onChange={(e) => choosePreset(e.target.value)}
+                  onChange={(e) => {
+                    choosePreset(e.target.value as DatePreset);
+                    setDetail(null);
+                  }}
                 >
                   <option value="7">Last 7 complete days</option>
                   <option value="28">Last 28 complete days</option>
@@ -224,7 +168,13 @@ export function Dashboard() {
               <span>{data?.club.timezone ?? 'Club local time'}</span>
             </div>
             {preset === 'custom' && (
-              <form className="custom-range" onSubmit={applyRange}>
+              <form
+                className="custom-range"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (applyRange()) setDetail(null);
+                }}
+              >
                 <label>
                   Start
                   <input
@@ -288,13 +238,7 @@ export function Dashboard() {
               <Info />
               <h2>We couldn’t load your insights</h2>
               <p>{error}</p>
-              <button
-                className="primary-button"
-                onClick={() => {
-                  setClubError('');
-                  setRetry((n) => n + 1);
-                }}
-              >
+              <button className="primary-button" onClick={retry}>
                 <RefreshCw size={16} />
                 Try again
               </button>

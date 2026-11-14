@@ -1,9 +1,5 @@
-export type Club = {
-  id: string;
-  name: string;
-  timezone: string;
-  created_at: string;
-};
+import type { Club } from '../clubs/types';
+
 export type Player = { id: string; name: string };
 export type Session = {
   id: string;

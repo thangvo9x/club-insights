@@ -1,5 +1,5 @@
-import { displayDate } from '@/lib/dates';
-import type { Insights, Metric } from '@/lib/types';
+import { displayDate } from '../lib/dates';
+import type { Insights, Metric } from '../types';
 import { METRICS } from './metric-card';
 
 export function WeeklyChart({

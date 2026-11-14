@@ -1,6 +1,6 @@
-import type { DateRange } from './types';
+import type { DateRange } from '../types';
 
-// The exercise specifies a fixed clock. Keep it shared by API, seed and tests.
+// The exercise specifies a fixed clock. Keep it shared by the UI, API and tests.
 export const NOW = '2026-10-05T02:00:00.000Z';
 export const DEFAULT_RANGE: DateRange = {
   start: '2026-09-07',

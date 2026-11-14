@@ -84,6 +84,14 @@ test('host explores numbers, changes dates, and switches to a useful empty club'
   await expect(page.getByRole('dialog')).toContainText('Unknown');
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   await page.getByLabel('DATE RANGE', { exact: true }).selectOption('custom');
+  await page.getByLabel('Start date', { exact: true }).fill('2026-10-05');
+  await page.getByLabel('End date', { exact: true }).fill('2026-10-04');
+  await page.getByRole('button', { name: 'Apply range' }).click();
+  await expect(
+    page
+      .getByRole('alert')
+      .filter({ hasText: 'Start date must be on or before end date.' }),
+  ).toBeVisible();
   await page.getByLabel('Start date', { exact: true }).fill('2026-09-30');
   await page.getByLabel('End date', { exact: true }).fill('2026-10-04');
   await page.getByRole('button', { name: 'Apply range' }).click();
@@ -138,6 +146,81 @@ test('API errors offer retry and recover', async ({ page }) => {
     page.getByRole('alert').filter({ hasText: 'Temporary failure.' }),
   ).toContainText('Temporary failure.');
   await page.unroute('**/api/insights?*');
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Your club at a glance' }),
+  ).toBeVisible();
+});
+
+test('a delayed response for the previous filters cannot replace the selected club', async ({
+  page,
+  request,
+}) => {
+  const oldResponse = await request.get(
+    '/api/insights?clubId=club-001&start=2026-09-28&end=2026-10-04',
+  );
+  const oldData = await oldResponse.json();
+  const started = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const finished = Promise.withResolvers<void>();
+  await page.route('**/api/insights?*', async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    if (
+      params.get('clubId') !== 'club-001' ||
+      params.get('start') !== '2026-09-28'
+    ) {
+      await route.continue();
+      return;
+    }
+    started.resolve();
+    await release.promise;
+    try {
+      await route.fulfill({ json: oldData });
+    } finally {
+      finished.resolve();
+    }
+  });
+  try {
+    await page.goto('/');
+    await expect(
+      page.getByRole('heading', { name: 'Your club at a glance' }),
+    ).toBeVisible();
+    await page.getByLabel('DATE RANGE', { exact: true }).selectOption('7');
+    await started.promise;
+    await page
+      .getByLabel('YOUR CLUB', { exact: true })
+      .selectOption('club-002');
+    await expect(
+      page.getByRole('heading', { name: 'Your club’s story starts here.' }),
+    ).toBeVisible();
+    release.resolve();
+    await finished.promise;
+    await expect(
+      page.getByRole('heading', { name: 'Your club’s story starts here.' }),
+    ).toBeVisible();
+    await expect(page.locator('.metric-value').first()).toHaveText('0');
+  } finally {
+    release.resolve();
+  }
+});
+
+test('club-list requests recover from a non-JSON server error', async ({
+  page,
+}) => {
+  await page.route('**/api/clubs', (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: 'text/html',
+      body: '<h1>Unavailable</h1>',
+    }),
+  );
+  await page.goto('/');
+  await expect(
+    page
+      .getByRole('alert')
+      .filter({ hasText: 'The server returned invalid JSON.' }),
+  ).toBeVisible();
+  await page.unroute('**/api/clubs');
   await page.getByRole('button', { name: 'Try again' }).click();
   await expect(
     page.getByRole('heading', { name: 'Your club at a glance' }),

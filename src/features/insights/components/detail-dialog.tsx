@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { X, Users, CalendarDays } from 'lucide-react';
-import { displayDate, localDate } from '@/lib/dates';
-import type { Insights, Metric } from '@/lib/types';
+import { displayDate, localDate } from '../lib/dates';
+import type { Insights, Metric } from '../types';
 import { METRICS } from './metric-card';
 
 export function DetailDialog({

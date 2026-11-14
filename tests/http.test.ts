@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { querySchema, validateEnd } from '../src/lib/http';
+import {
+  querySchema,
+  validateEnd,
+} from '../src/features/insights/lib/validation';
 
 test('API rejects invalid, reversed, missing and overly long ranges', () => {
   const query = { clubId: 'c1', start: '2026-09-01', end: '2026-10-04' };

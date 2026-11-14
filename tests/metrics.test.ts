@@ -1,8 +1,14 @@
+import type { Club } from '../src/features/clubs/types';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateInsights } from '../src/lib/metrics';
-import { addDays, localDate, mondayOf, precedingRange } from '../src/lib/dates';
-import type { Booking, Club, Dataset, Session } from '../src/lib/types';
+import { calculateInsights } from '../src/features/insights/server/metrics';
+import {
+  addDays,
+  localDate,
+  mondayOf,
+  precedingRange,
+} from '../src/features/insights/lib/dates';
+import type { Booking, Dataset, Session } from '../src/features/insights/types';
 
 const club: Club = {
   id: 'c1',

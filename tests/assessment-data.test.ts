@@ -1,10 +1,16 @@
+import type { Club } from '../src/features/clubs/types';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { resolve } from 'node:path';
 import { seedDatabase } from '../scripts/seed';
-import { calculateInsights } from '../src/lib/metrics';
-import type { Booking, Club, Dataset, Player, Session } from '../src/lib/types';
+import { calculateInsights } from '../src/features/insights/server/metrics';
+import type {
+  Booking,
+  Dataset,
+  Player,
+  Session,
+} from '../src/features/insights/types';
 
 test('assessment CSV mapping and audited metrics match the supplied dataset', () => {
   const db = new DatabaseSync(':memory:');

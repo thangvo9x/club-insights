@@ -1,7 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import type { Booking, Club, Dataset, Player, Session } from './types';
 
 export function openDatabase(
   path = process.env.DATABASE_PATH ?? resolve('data/club-insights.sqlite'),
@@ -32,54 +31,4 @@ export function createSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS sessions_club_start ON sessions(club_id, starts_at);
     CREATE INDEX IF NOT EXISTS bookings_session ON bookings(session_id);
   `);
-}
-
-export function readClubs(): Club[] {
-  const db = openDatabase();
-  try {
-    return db
-      .prepare('SELECT * FROM clubs ORDER BY created_at, id')
-      .all() as Club[];
-  } finally {
-    db.close();
-  }
-}
-
-export function readClubData(
-  clubId: string,
-): { club: Club; data: Dataset; dataSource: 'demo' | 'imported' } | null {
-  const db = openDatabase();
-  try {
-    db.exec('BEGIN');
-    const club = db.prepare('SELECT * FROM clubs WHERE id = ?').get(clubId) as
-      Club | undefined;
-    if (!club) return null;
-    const sessions = db
-      .prepare('SELECT * FROM sessions WHERE club_id = ?')
-      .all(clubId)
-      .map((s) => ({
-        ...s,
-        attendance_recorded: s.attendance_recorded === 1,
-      })) as Session[];
-    const bookings = db
-      .prepare(
-        'SELECT b.* FROM bookings b JOIN sessions s ON s.id = b.session_id WHERE s.club_id = ?',
-      )
-      .all(clubId) as Booking[];
-    const players = db
-      .prepare(
-        'SELECT DISTINCT p.* FROM players p JOIN bookings b ON b.player_id = p.id JOIN sessions s ON s.id = b.session_id WHERE s.club_id = ?',
-      )
-      .all(clubId) as Player[];
-    const source = db
-      .prepare("SELECT value FROM metadata WHERE key = 'source'")
-      .get();
-    return {
-      club,
-      data: { sessions, bookings, players },
-      dataSource: source?.value === 'demo' ? 'demo' : 'imported',
-    };
-  } finally {
-    db.close();
-  }
 }
