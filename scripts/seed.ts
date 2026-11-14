@@ -8,44 +8,77 @@ import { createSchema, openDatabase } from '../src/lib/db';
 
 const id = z.string().trim().min(1);
 const utc = z.iso.datetime();
+const boolean = z.enum(['true', 'false']);
+const dateOrUtc = z.union([z.iso.date(), utc]);
 const schemas = {
-  clubs: z.object({
-    id,
-    name: id,
-    timezone: id.refine((v) => {
-      try {
-        new Intl.DateTimeFormat('en', { timeZone: v });
-        return true;
-      } catch {
-        return false;
-      }
-    }, 'Invalid IANA timezone'),
-    created_at: utc,
-  }),
-  players: z.object({ id, name: id }),
+  clubs: z
+    .object({
+      club_id: id,
+      name: id,
+      time_zone: id.refine((v) => {
+        try {
+          new Intl.DateTimeFormat('en', { timeZone: v });
+          return true;
+        } catch {
+          return false;
+        }
+      }, 'Invalid IANA timezone'),
+      created_at: dateOrUtc,
+    })
+    .transform((c) => ({
+      id: c.club_id,
+      name: c.name,
+      timezone: c.time_zone,
+      created_at: c.created_at,
+    })),
+  players: z
+    .object({
+      player_id: id,
+      club_id: id,
+      name: id,
+      joined_club_at: z.iso.date(),
+    })
+    .transform((p) => ({ id: p.player_id, name: p.name })),
   sessions: z
     .object({
-      id,
+      session_id: id,
       club_id: id,
       title: id,
       starts_at: utc,
-      ends_at: utc,
-      status: z.enum(['scheduled', 'completed', 'cancelled']),
-      attendance_recorded: z
-        .enum(['true', 'false', '1', '0'])
-        .transform((v) => (v === 'true' || v === '1' ? 1 : 0)),
+      duration_minutes: z.coerce.number().int().positive().max(1440),
+      places: z.coerce.number().int().nonnegative(),
+      status: z.enum(['scheduled', 'cancelled']),
+      attendance_recorded: boolean,
     })
-    .refine(
-      (s) => Date.parse(s.starts_at) < Date.parse(s.ends_at),
-      'Session must end after it starts',
-    ),
-  bookings: z.object({
-    id,
-    session_id: id,
-    player_id: id,
-    status: z.enum(['confirmed', 'cancelled']),
-    attendance: z.enum(['present', 'absent', '']).transform((v) => v || null),
-  }),
+    .transform((s) => ({
+      id: s.session_id,
+      club_id: s.club_id,
+      title: s.title,
+      starts_at: s.starts_at,
+      ends_at: new Date(
+        Date.parse(s.starts_at) + s.duration_minutes * 60_000,
+      ).toISOString(),
+      status: s.status,
+      attendance_recorded: s.attendance_recorded === 'true' ? 1 : 0,
+    })),
+  bookings: z
+    .object({
+      booking_id: id,
+      session_id: id,
+      player_id: id,
+      booked_at: utc,
+      status: z.enum(['booked', 'cancelled']),
+      cancelled_at: z.union([utc, z.literal('')]),
+      attended: z.enum(['true', 'false', '']),
+    })
+    .transform((b) => ({
+      id: b.booking_id,
+      session_id: b.session_id,
+      player_id: b.player_id,
+      status: b.status === 'booked' ? 'confirmed' : 'cancelled',
+      attendance:
+        b.attended === '' ? null : b.attended === 'true' ? 'present' : 'absent',
+    })),
 };
 
 export function seedDatabase(
@@ -109,7 +142,10 @@ if (
     const exists =
       Number(db.prepare('SELECT COUNT(*) AS count FROM clubs').get()?.count) >
       0;
-    if (process.argv.includes('--if-empty') && exists)
+    const source = db
+      .prepare("SELECT value FROM metadata WHERE key = 'source'")
+      .get()?.value;
+    if (process.argv.includes('--if-empty') && exists && source !== 'demo')
       console.log('Database ready; keeping existing data.');
     else {
       const flag = process.argv.indexOf('--csv-dir');
@@ -118,7 +154,7 @@ if (
       const directory =
         flag === -1 ? resolve('data/csv') : resolve(process.argv[flag + 1]);
       console.log(
-        `Seeded ${flag === -1 ? 'DEMO' : 'imported'} data: ${seedDatabase(db, directory, flag === -1 ? 'demo' : 'imported')}`,
+        `Seeded assessment CSVs: ${seedDatabase(db, directory, 'imported')}`,
       );
     }
   } finally {

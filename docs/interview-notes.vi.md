@@ -12,7 +12,7 @@
 
 “Schema nhỏ, API chỉ đọc và có bốn bảng. Em dùng SQL parameterized, React state và CSS bars. Các component card, chart, dialog tách riêng; metric là hàm thuần dùng chung cho summary và chart.”
 
-- SQLite built-in giảm dependency native, nhưng yêu cầu Node 24.x và chưa có migration framework.
+- SQLite built-in giảm dependency native, nhưng yêu cầu Node 26.13.1 LTS và chưa có migration framework.
 - React state đủ cho hai bộ lọc và một metric được chọn; chưa cần global store.
 - Chart đơn giản dễ audit; bảng dữ liệu hỗ trợ người đọc màn hình. Khi cần zoom, tooltip phức tạp hay nhiều series thì dùng chart library.
 - Một response có cả summary và drill-down giúp dữ liệu nhất quán và ít endpoint; đổi lại overfetch, nên phân trang khi tăng quy mô.
@@ -40,8 +40,10 @@ Một người chơi hai tuần vẫn chỉ tính một lần cho cả kỳ; do 
 - Chọn 28 ngày thì kỳ trước cũng 28 ngày; tuần đầu/cuối bị cắt bởi range sẽ đánh dấu partial.
 - Baseline bằng 0 không tính phần trăm tăng vô hạn.
 
-## 6. Điều cần nói thẳng khi nộp
+## 6. Cách đọc CSV gốc
 
-“Bản đề em nhận chỉ có PDF, chưa có CSV gốc. Em tạo dữ liệu synthetic có nhãn demo và importer có contract rõ ràng. Em đã kiểm tra hành vi trên fixtures, nhưng chưa khẳng định schema và kết quả khớp bộ dữ liệu thật.”
+CSV dùng `duration_minutes` nên thời điểm kết thúc được tính từ `starts_at` cộng duration. Các session đã diễn ra vẫn có status `scheduled`: không được chờ status `completed` mới tính là held.
 
-Việc tiếp theo đầu tiên là nhận CSV thật, kiểm tra headers, mapping trạng thái, ý nghĩa attendance và reconcile vài kỳ bằng truy vấn độc lập. Sau đó mới tối ưu, thêm filter vào URL và triển khai auth/club authorization nếu đưa lên production.
+Booking `status=booked` được ánh xạ sang `confirmed` trong model nội bộ. `attended=true` là present, `false` là absent, ô trống là unknown. Chỉ dùng attended khi session có `attendance_recorded=true` và booking chưa hủy.
+
+Bộ dữ liệu gốc có 2 clubs, 260 players, 195 sessions và 1.893 bookings. Kỳ mặc định 7/9–4/10/2026 có 93 active players, 20 held sessions, 15 recorded no-shows và 113 booking chưa biết attendance. Những số này được tính độc lập từ CSV và lưu thành regression test.

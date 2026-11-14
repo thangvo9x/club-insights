@@ -6,7 +6,7 @@ Node runtime. Read-only; intentionally no authentication per the brief. All resp
 
 Returns `{ "clubs": [{ "id", "name", "timezone", "created_at" }] }`, ordered by creation time then ID. Club IDs are opaque strings.
 
-## `GET /api/insights?clubId=saigon-rally&start=2026-09-07&end=2026-10-04`
+## `GET /api/insights?clubId=club-001&start=2026-09-07&end=2026-10-04`
 
 All parameters required. Dates are inclusive `YYYY-MM-DD` in the club’s timezone. Maximum 366 days; end cannot exceed the fixed clock’s local date.
 

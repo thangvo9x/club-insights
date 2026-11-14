@@ -1,57 +1,120 @@
 # Club Insights
 
-A small, read-only Reclub host dashboard: participation, held sessions and observed no-shows, with a weekly chart and traceable drill-downs. Built with Next.js, TypeScript and SQLite.
+Dashboard cho club host theo dõi active players, sessions đã diễn ra và no-shows, so sánh với kỳ trước, xem biểu đồ theo tuần và mở chi tiết phía sau mỗi chỉ số.
 
 ![Desktop dashboard](docs/screenshots/desktop.png)
 
-[Mobile preview](docs/screenshots/mobile.png) · [New-club preview](docs/screenshots/empty-club.png) · [Original brief](docs/assignment.pdf)
+[Mobile preview](docs/screenshots/mobile.png) · [Club chưa có dữ liệu](docs/screenshots/empty-club.png) · [Đề bài](docs/assignment.pdf)
 
-## Run
+## Công nghệ sử dụng
 
-Requires **Node.js 24.x** (uses built-in `node:sqlite`) and npm.
+| Công nghệ                          | Vai trò trong project                                                                                |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Node.js 26.13.1 LTS                | Runtime chạy ứng dụng, seed script và tests; cung cấp module `node:sqlite` để làm việc với SQLite    |
+| Next.js 16 App Router              | Tổ chức trang, layout và JSON API bằng route handlers trong cùng project                             |
+| React 19 + TypeScript              | Xây dựng giao diện, quản lý trạng thái bộ lọc bằng React hooks và định nghĩa kiểu dữ liệu dùng chung |
+| SQLite                             | Lưu clubs, players, sessions, bookings và thông tin nguồn dữ liệu trong một file database            |
+| Zod + csv-parse                    | Kiểm tra tham số API, xác thực dữ liệu CSV và đọc CSV có header                                      |
+| CSS + Lucide React                 | Responsive layout, biểu đồ cột và icons; biểu đồ có bảng số liệu đi kèm                              |
+| Node test runner + Playwright      | Kiểm thử hàm tính metrics, seed database, API và thao tác trên trình duyệt                           |
+| ESLint + Prettier + GitHub Actions | Kiểm tra code, thống nhất format và chạy CI khi push hoặc mở pull request                            |
+
+## Cài đặt và chạy
+
+Cần Node.js **26.13.1** và npm. Nếu dùng nvm:
 
 ```sh
+nvm install
+nvm use
 npm ci
 npm run dev
 ```
 
-Open http://localhost:3000. After installing, **`npm run dev` is the one-command start**: it seeds an empty database from the checked-in CSVs, then runs Next.js. Existing data is preserved. For production: `npm run build`, then `npm start` (also seeds when empty).
+Mở http://localhost:3000. Sau khi cài dependencies, chỉ cần **`npm run dev`**: script tự seed nếu database chưa có dữ liệu rồi khởi động Next.js. Database đã có dữ liệu được giữ nguyên.
 
-**Data limitation:** only the assignment PDF was supplied. `data/csv/*.csv` contains clearly labelled, deterministic **synthetic demo data**, not the assessment dataset: 2 clubs, 96 players, 163 sessions and 2,605 bookings covering January–October 2026 (including future sessions to exercise exclusions). The second club has no sessions. Real-data compliance remains pending receipt of the original four CSVs and verification of their headers. See [CSV contract](docs/csv-contract.md).
+Chạy bản production:
 
 ```sh
-npm run seed                              # explicitly replace DB with demo CSVs
-npm run seed -- --csv-dir /path/to/csvs    # import all four CSVs atomically
-npm run demo:generate                     # regenerate deterministic demo CSVs
+npm run build
+npm start
 ```
 
-Import validates fields, time zones, foreign keys and duplicate player/session bookings. Any failure preserves the previous database. The application never reads CSVs directly: **all dashboard data comes from JSON APIs backed by SQLite**. `DATABASE_PATH` optionally overrides `data/club-insights.sqlite`; no environment setup is needed by default.
+## Cấu trúc project
 
-## Decisions where the brief was silent
+```text
+src/
+  app/
+    layout.tsx              # Layout gốc, metadata và global CSS
+    page.tsx                # Trang chính, render Dashboard
+    api/
+      clubs/route.ts        # GET /api/clubs: danh sách club
+      insights/route.ts     # GET /api/insights: metrics, chart và chi tiết
+  components/
+    dashboard.tsx           # Gọi API, quản lý bộ lọc và ghép các phần giao diện
+    metric-card.tsx         # Card chỉ số, định nghĩa và so sánh kỳ trước
+    weekly-chart.tsx        # Biểu đồ theo tuần và bảng dữ liệu
+    detail-dialog.tsx       # Dialog hiển thị players hoặc sessions của chỉ số
+  lib/
+    types.ts                # Các kiểu Club, Session, Booking, Insights...
+    db.ts                   # Schema SQLite và các truy vấn đọc dữ liệu
+    metrics.ts              # Hàm thuần tính summary, weekly metrics và drill-down
+    dates.ts                # Clock cố định, ngày địa phương và phép tính tuần/kỳ
+    http.ts                 # Validation tham số và response JSON
+scripts/
+  seed.ts                   # Đọc, validate và import bốn CSV trong một transaction
+data/csv/                  # clubs.csv, players.csv, sessions.csv, bookings.csv
+tests/
+  assessment-data.test.ts   # Đối chiếu số liệu đã audit từ CSV gốc
+  metrics.test.ts           # No-show unknown/zero, biên ngày, tuần, unique players
+  seed.test.ts              # Seed lặp lại và rollback khi import lỗi
+  http.test.ts              # Validation khoảng ngày của API
+  e2e/dashboard.spec.ts     # API thực tế, desktop/mobile, filters và retry
+docs/                      # API contract, CSV contract, checklist và ảnh preview
+.github/workflows/ci.yml    # Cài dependencies, check, build và browser tests
+```
 
-- **Clock:** always `2026-10-05T02:00:00Z`, i.e. Monday 5 October, 09:00 in Ho Chi Minh City. Never the machine clock.
-- **Held session:** non-cancelled, ended by that clock; assigned to the club-local date on which it started. Ongoing/future sessions are excluded even if their status says completed.
-- **Active player:** distinct player with a confirmed (non-cancelled) booking in a held session. Includes no-shows and unknown attendance: this measures booking participation, **not actual attendance**. The definition appears beside the card.
-- **No-show:** confirmed booking explicitly marked absent, only at a session with attendance recorded. Missing records are unknown, not zero. A partly observed period shows the observed count plus coverage; entirely unobserved/no-session periods show `null` / “Unknown”. An empty session with attendance recorded has known zero no-shows.
-- **Comparison:** inclusive calendar date range versus the immediately preceding equal number of days. Default: last 28 complete days, 7 September–4 October. Zero baseline shows “No baseline” instead of infinite growth. No-show change uses observed counts, with coverage for both periods; no misleading percentage or “improved” claim.
-- **Weeks:** Monday–Sunday in each club’s IANA timezone. Boundary weeks include only selected days and are labelled partial. Weekly unique players must not be summed into period uniques.
-- **Scope:** no login, club switcher, laptop-first responsive layout, English UI to match the brief. Empty clubs get an onboarding explanation; empty ranges, loading and failures have separate states. Custom ranges are limited to 366 days and cannot end after the fixed local date.
+## Luồng dữ liệu
 
-## Structure & checks
+1. `scripts/seed.ts` đọc bốn CSV, validate bằng Zod và ghi vào SQLite. Import lỗi sẽ rollback toàn bộ, giữ dữ liệu cũ.
+2. `dashboard.tsx` gọi `/api/clubs` để lấy club switcher, sau đó gọi `/api/insights` với `clubId`, `start`, `end`.
+3. Route handler kiểm tra tham số qua `http.ts`, đọc dữ liệu qua `db.ts` và gọi `calculateInsights()` trong `metrics.ts`.
+4. API trả JSON gồm kỳ hiện tại, kỳ trước, dữ liệu tuần và danh sách players/sessions để truy ngược chỉ số. Cùng API này có thể dùng cho mobile app.
+5. React hiển thị metric cards, chart và detail dialog. Đổi club hoặc áp dụng khoảng ngày sẽ gọi lại API; chọn card đổi metric đang xem trên chart.
 
-`src/lib/metrics.ts` is a pure calculation layer; `db.ts` handles parameterized SQLite reads; route handlers return JSON; `src/components/` contains reusable metric cards, chart and native accessible detail dialog. See [API contract](docs/api.md) and [spec checklist](docs/spec-checklist.md).
+Frontend lấy dữ liệu qua JSON API; các truy vấn database nằm phía server. Chi tiết response nằm trong [API contract](docs/api.md).
+
+## Dữ liệu và seed
+
+`data/csv/` chứa nguyên bốn CSV được cung cấp cùng bài: **2 clubs, 260 players, 195 sessions và 1.893 bookings**. Saigon Smash Pickleball có dữ liệu từ tháng 1 đến tháng 10/2026; Thảo Điền Tennis Club được tạo ngày 1/10/2026 và chưa có session. Xem [CSV contract](docs/csv-contract.md) để biết cách ánh xạ các cột vào database.
 
 ```sh
-npm run check           # Prettier, ESLint, strict TypeScript, automated unit/integration tests
-npm run build           # production build
+npm run seed                              # Seed lại database từ CSV đi kèm
+npm run seed -- --csv-dir /path/to/csvs    # Import thư mục có đủ bốn CSV
+```
+
+Database demo từ phiên bản cũ được tự thay bằng CSV gốc khi khởi động. Với database đã import, `npm run dev` giữ nguyên dữ liệu; dùng `npm run seed` khi muốn nạp lại.
+
+Database mặc định là `data/club-insights.sqlite`, không được commit vào Git. Có thể đổi vị trí qua biến `DATABASE_PATH`; mặc định không cần tạo file môi trường.
+
+## Quy tắc tính chỉ số
+
+- **Clock:** cố định ở `2026-10-05T02:00:00Z`, tương ứng 09:00 ngày 5/10/2026 tại TP.HCM.
+- **Sessions held:** session chưa hủy, đã kết thúc trước hoặc đúng clock; thuộc ngày bắt đầu theo timezone của club.
+- **Active players:** số player duy nhất có booking chưa hủy trong các held sessions, bao gồm no-shows và attendance chưa biết.
+- **Recorded no-shows:** booking chưa hủy được ghi rõ absent ở session đã ghi attendance. Dữ liệu chưa ghi nhận là unknown; API trả `null` nếu hoàn toàn chưa biết, không thay bằng 0. UI hiển thị độ phủ attendance.
+- **So sánh:** kỳ trước có cùng số ngày, kết thúc ngay trước ngày bắt đầu của kỳ được chọn. Mặc định chọn 28 ngày hoàn chỉnh gần nhất theo clock.
+- **Tuần:** thứ Hai–Chủ nhật theo timezone club. Tuần đầu/cuối chỉ tính ngày trong bộ lọc và có nhãn partial. Weekly unique players không cộng thành unique players toàn kỳ.
+
+## Kiểm tra code
+
+```sh
+npm run check           # Prettier, ESLint, TypeScript và unit/integration tests
+npm run build           # Build production
 npx playwright install chromium
-npm run test:e2e        # real API + desktop/mobile/error flows, starts app if needed
+npm run test:e2e        # API và browser tests; tự khởi động app nếu cần
+npm run format          # Format code bằng Prettier
 ```
 
-For a system Chromium: `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e`. E2E tests expect the bundled demo CSVs. CI runs checks, build and browser tests on a clean install. `npm run format` applies the shared formatting rules.
+Nếu dùng Chromium đã cài trên máy: `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e`. Browser tests dùng CSV gốc trong repo. CI chạy trên cùng phiên bản Node khai báo trong `.nvmrc`.
 
-## Trade-offs & next steps
-
-Kept intentionally simple: one app, route handlers instead of a separate server, built-in SQLite instead of an ORM/native DB dependency, React state instead of a state library, and CSS bars with an accessible data table instead of a charting library. A single response includes summaries, weeks and drill-downs: consistent and easy to consume from mobile, but overfetches. Synchronous reads and TypeScript aggregation are reasonable for one club’s nine months; they block the server thread and will need SQL aggregation, pagination and async DB access at larger scale. SQLite requires persistent local storage and a Node runtime; this is not an Edge/serverless-ephemeral deployment.
-
-Next: import/verify the original CSVs, confirm the active-player definition with hosts, add SQL aggregation and paginated drill-down endpoints, URL-persisted filters, broader accessibility testing and authenticated club permissions before production. More interview notes (Vietnamese): [trade-offs](docs/interview-notes.vi.md).
+Đối chiếu yêu cầu đề bài tại [spec checklist](docs/spec-checklist.md).

@@ -312,15 +312,6 @@ export function Dashboard() {
           ) : (
             data && (
               <>
-                {data.dataSource === 'demo' && (
-                  <div className="demo-banner">
-                    <span className="demo-badge">DEMO DATA</span>
-                    <span>
-                      Synthetic CSVs for this prototype. The assessment’s source
-                      CSVs were not supplied.
-                    </span>
-                  </div>
-                )}
                 <div className="section-heading">
                   <h2>Your club at a glance</h2>
                   <span>Select a card to change the chart</span>

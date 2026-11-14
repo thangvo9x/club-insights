@@ -414,25 +414,6 @@ main {
   align-items: center;
   gap: 5px;
 }
-.demo-banner {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 10px 13px;
-  background: #fff9ec;
-  border: 1px solid #f2e9d1;
-  border-radius: 7px;
-  font-size: 10px;
-  line-height: 1.7;
-  color: #8e784a;
-  margin-bottom: 25px;
-}
-.demo-badge {
-  flex-shrink: 0;
-  font-weight: 700;
-  font-size: 8px;
-  letter-spacing: 0.8px;
-}
 .section-heading {
   display: flex;
   justify-content: space-between;
@@ -1371,10 +1352,6 @@ td strong {
   .period-caption {
     font-size: 9px;
     margin-bottom: 20px;
-  }
-  .demo-banner {
-    font-size: 9px;
-    align-items: start;
   }
   .section-heading {
     align-items: start;

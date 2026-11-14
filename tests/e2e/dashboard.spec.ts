@@ -5,10 +5,16 @@ test('API contract, validation and club isolation', async ({ request }) => {
   expect(clubsResponse.ok()).toBeTruthy();
   expect((await clubsResponse.json()).clubs).toHaveLength(2);
   const response = await request.get(
-    '/api/insights?clubId=saigon-rally&start=2026-09-07&end=2026-10-04',
+    '/api/insights?clubId=club-001&start=2026-09-07&end=2026-10-04',
   );
   expect(response.headers()['cache-control']).toBe('no-store');
   const insights = await response.json();
+  expect(insights.dataSource).toBe('imported');
+  expect(insights.current).toMatchObject({
+    activePlayers: 93,
+    sessionsHeld: 20,
+    noShows: 15,
+  });
   expect(insights.current.sessionsHeld).toBe(insights.details.sessions.length);
   expect(insights.current.activePlayers).toBe(insights.details.players.length);
   expect(insights.current.noShows).toBe(
@@ -23,10 +29,10 @@ test('API contract, validation and club isolation', async ({ request }) => {
     end: '2026-09-06',
   });
   for (const query of [
-    'clubId=saigon-rally&start=2026-02-30&end=2026-10-04',
-    'clubId=saigon-rally&start=2026-10-05&end=2026-09-01',
-    'clubId=saigon-rally&start=2026-10-06&end=2026-10-06',
-    'clubId=saigon-rally',
+    'clubId=club-001&start=2026-02-30&end=2026-10-04',
+    'clubId=club-001&start=2026-10-05&end=2026-09-01',
+    'clubId=club-001&start=2026-10-06&end=2026-10-06',
+    'clubId=club-001',
   ]) {
     expect((await request.get(`/api/insights?${query}`)).status()).toBe(400);
   }
@@ -39,7 +45,7 @@ test('API contract, validation and club isolation', async ({ request }) => {
   ).toBe(404);
   const empty = await (
     await request.get(
-      '/api/insights?clubId=riverside&start=2026-09-07&end=2026-10-04',
+      '/api/insights?clubId=club-002&start=2026-09-07&end=2026-10-04',
     )
   ).json();
   expect(empty.current).toMatchObject({
@@ -90,7 +96,7 @@ test('host explores numbers, changes dates, and switches to a useful empty club'
   await expect(
     page.getByText('No held sessions in this range.', { exact: false }),
   ).toBeVisible();
-  await page.getByLabel('YOUR CLUB', { exact: true }).selectOption('riverside');
+  await page.getByLabel('YOUR CLUB', { exact: true }).selectOption('club-002');
   await expect(
     page.getByRole('heading', { name: 'Your club’s story starts here.' }),
   ).toBeVisible();
