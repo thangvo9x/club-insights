@@ -4,7 +4,7 @@ A club host dashboard for tracking active players, held sessions and recorded no
 
 ![Desktop dashboard](docs/screenshots/desktop.png)
 
-[Mobile preview](docs/screenshots/mobile.png) · [New-club preview](docs/screenshots/empty-club.png) · [Assignment brief](docs/assignment.pdf)
+[Mobile preview](docs/screenshots/mobile.png) · [New-club preview](docs/screenshots/empty-club.png)
 
 ## Tech stack
 
@@ -127,3 +127,11 @@ npm run format          # Apply Prettier formatting
 ```
 
 For a system-installed Chromium: `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e`. Browser tests use the supplied CSVs. CI uses the Node version declared in `.nvmrc`.
+
+## What to do next
+
+- Validate the metric definitions and attendance coverage labels with club hosts, especially whether active players should represent bookings or verified attendance.
+- Store the selected club and date range in the URL so hosts can bookmark and share a dashboard view.
+- Add pagination to player/session details and move aggregation into SQL as the dataset grows, keeping API responses small for mobile clients.
+- Expand keyboard and screen-reader checks, and add browser coverage for long date ranges and partially recorded attendance.
+- Before a production rollout, add club-level authorization, database migrations and backups, and deploy SQLite on persistent storage.
