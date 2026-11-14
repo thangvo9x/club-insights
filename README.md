@@ -69,7 +69,7 @@ src/
 scripts/seed.ts                # Validates and imports all four CSVs in one transaction
 data/csv/                      # Supplied clubs, players, sessions and bookings CSVs
 tests/                         # Metric, import, API and browser tests
-docs/                          # API/CSV contracts, spec checklist and preview images
+docs/                          # API/CSV contracts and preview images
 .github/workflows/ci.yml        # Dependency installation, checks, build and browser tests
 ```
 
@@ -103,7 +103,7 @@ npm run seed                              # Replace database contents with the b
 npm run seed -- --csv-dir /path/to/csvs    # Import a directory containing all four CSVs
 ```
 
-Legacy synthetic demo databases are automatically replaced with the supplied dataset on startup. Other imported databases are preserved; use `npm run seed` to reload them.
+Existing imported databases are preserved on startup; use `npm run seed` to reload the supplied CSVs.
 
 The database defaults to `data/club-insights.sqlite` and is excluded from Git. Set `DATABASE_PATH` to use another location. No environment file is required by default.
 
@@ -127,5 +127,3 @@ npm run format          # Apply Prettier formatting
 ```
 
 For a system-installed Chromium: `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e`. Browser tests use the supplied CSVs. CI uses the Node version declared in `.nvmrc`.
-
-See the [spec checklist](docs/spec-checklist.md) for requirement coverage.
